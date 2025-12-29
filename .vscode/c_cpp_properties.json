@@ -1,0 +1,29 @@
+{
+    "version": 4,
+    "configurations": [
+        {
+            "name": "AVR",
+            "compilerPath": "/usr/bin/avr-gcc",
+            "compilerArgs": [
+                "-mmcu=atmega328",
+                "-DF_CPU=16000000UL"
+            ],
+            "includePath": [
+                "${workspaceFolder}/**",
+                "${workspaceFolder}/inc/**",
+                "${workspaceFolder}/inc/system/**",
+                "${workspaceFolder}/inc/screen",
+                "${workspaceFolder}/inc/sram",
+                "${workspaceFolder}/inc/tim",
+                "${workspaceFolder}/inc/sram",
+                "${workspaceFolder}/src/"
+            ],
+            "defines": [
+                "__AVR_ATmega168__"
+            ],
+            "cStandard": "${default}",
+            "cppStandard": "${default}",
+            "intelliSenseMode": "linux-gcc-x64"
+        }
+    ]
+}
