@@ -18,7 +18,7 @@ SYSTEM systemConfig = {
     .spi.cs_reg.CS_PIN = PB1,
     .spi.buffer = {'\0'},
     .spi.interruptFLag = SPI_IT_DONE,
-    .spi.buffer_length = 1,
+    .spi.buffer_length = 100,
 
     // I2C DEFAULT CONFIGURATION
     .i2c.frequency = 400000UL,

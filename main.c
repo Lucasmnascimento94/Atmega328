@@ -25,7 +25,8 @@ int main(void){
     uartWrite_(s);
 
     while(true){
-        uartWrite_(msg);
+        uartWrite_(systemConfig.spi.buffer);
+        uartWrite_("\n");
         _delay_ms(500);
     }
 }

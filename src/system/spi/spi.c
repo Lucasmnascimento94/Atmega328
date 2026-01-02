@@ -260,22 +260,22 @@ uint8_t spiReceiveInt(){
     }
 
     if(state == SPI_STATE_RUNNING){
-        systemConfig.spi.buffer [tx_index++] = SPDR; 
+        uint8_t data = SPDR;
+        if(data != 0x00){systemConfig.spi.buffer [tx_index++] = data;} 
 
         if(tx_index < systemConfig.spi.buffer_length){
             systemConfig.spi.interruptFLag = SPI_IT_RUNNING_RECEIVE;
-            if ((SPCR & (1 << MSTR)) != 0){SPDR = 0xFF;}
+            //if ((SPCR & (1 << MSTR)) != 0){SPDR = 0xFF;}
             return SPI_IT_RUNNING_RECEIVE;
         }
         else{
-            if ((SPCR & (1 << MSTR)) != 0) {status = spiStop();}
-            tx_index = 0;
-            state = SPI_STATE_START;
-            memcpy(ptr_holder, systemConfig.spi.buffer, systemConfig.spi.buffer_length);
-            systemConfig.spi.buffer_length = 0;
-            (void)SPSR;
-            (void)SPDR;
+            //if ((SPCR & (1 << MSTR)) != 0) {status = spiStop();}
+            //tx_index = 0;
+            //state = SPI_STATE_START;
+            //memcpy(ptr_holder, systemConfig.spi.buffer, systemConfig.spi.buffer_length);
+            systemConfig.spi.buffer_length = 100;
             systemConfig.spi.interruptFLag = SPI_IT_DONE;
+            uartWrite_(systemConfig.spi.buffer);
             return SPI_IT_DONE;
         }
     }

@@ -6,14 +6,16 @@
 
 // SPI Transfer Complete ISR
 ISR(SPI_STC_vect){
-    switch (systemConfig.spi.interruptFLag){
-        case SPI_IT_RUNNING_TRANSMIT:
-            spiTransmitInt();
-            return;
-        default:
-            spiReceiveInt();
-            uartWrite_("S\n");
-            return;
+    uint8_t flow = systemConfig.spi.interruptFLag;
+    if(flow == SPI_IT_RUNNING_TRANSMIT){
+        spiTransmitInt();
+    }else if(SPI_IT_RUNNING_RECEIVE){
+        spiReceiveInt();
+    }else if(SPI_IT_DONE){
+        systemConfig.spi.conf.mode_conf.mode = SPI_SLAVE;
+        systemConfig.spi.interruptFLag = SPI_IT_RUNNING_RECEIVE;
+        spiInit();
+        // Triggered by SS pulled low.
     }
 }
 
