@@ -51,13 +51,14 @@ typedef struct{
   uint16_t timeout;
   uint16_t max_length;
   SPI_MODE mode_conf;
-  uint8_t interruptFLag;
 }SPI_CONF;
 
 typedef struct {
   SPI_CONF conf;
   SPI_CS_TARGET  cs_reg;
   char buffer[100];
+  uint8_t buffer_length;
+  volatile uint8_t interruptFLag;
 }SPI;
 
 

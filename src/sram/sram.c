@@ -1,100 +1,92 @@
 #include "sram.h"
+SRAM sram = {
+    .buffer = {0},
+    .err_code = 0,
+};
+#define SRAM_INSTRUCTION_SIZE 4
 
-
-void sendInstruction(uint32_t address){
-    uint8_t byte[4] = {};
-     for(int i=0; i<4; i++){
-        byte[i] = (uint8_t)((address >> ((3 - i) * 8)) & 0xFF);
+void buildInstruction(uint32_t address, uint8_t cmd){
+    uint32_t instruction = (((uint32_t)cmd) << 24) | address;
+    int i=0;
+     for(;i<SRAM_INSTRUCTION_SIZE; i++){
+        sram.buffer[i] = (uint8_t)((instruction >> ((3 - i) * 8)) & 0xFF);
      }
-     spiWritePoll_(byte, 4);
 }
 
+uint8_t sramWrite(uint8_t *c, uint16_t length, uint32_t address){
+    while(systemConfig.spi.interruptFLag == SPI_IT_RUNNING_RECEIVE || systemConfig.spi.interruptFLag == SPI_IT_RUNNING_TRANSMIT){__builtin_avr_delay_cycles(1);}
+    memset(sram.buffer, 0, sizeof(sram.buffer));
 
-/* Writing One Byte Process:
->> 1byte: command Instruction [SRAM_WRITE]
->> 3bytes: 24 bit address
->> 1byte: Data out
-*/
-void sramWriteByte(uint8_t c, uint32_t address){
-    address = (((uint32_t)SRAM_WRITE) << 24) | address; // Combine Command instruction to the address data
-    spiStart();
-    sendInstruction(address); 
-    spiWritePoll_(&c, 1);
-    spiStop(); 
+    buildInstruction(address, SRAM_WRITE);
+    uint8_t data_len = (length > (sizeof(sram.buffer) - SRAM_INSTRUCTION_SIZE))? sizeof(sram.buffer) - SRAM_INSTRUCTION_SIZE : length;
+    memcpy(&sram.buffer[SRAM_INSTRUCTION_SIZE], c, data_len);
+
+    return spiTransmit((char *)sram.buffer, data_len + SRAM_INSTRUCTION_SIZE);
 }
 
 void sramWriteU16(uint16_t data, uint32_t address){
-    sramWriteByte((uint8_t)(data>>8), address);
-    sramWriteByte((uint8_t)data, address  + 1);
+
+    uint8_t data_[2];
+    data_[0] = (uint8_t)(data>>8);
+    data_[1] = (uint8_t)(data);
+    sramWrite(data_, 2,address);
 }
 
 void sramWriteU32(uint32_t data, uint32_t address){
-    sramWriteByte((uint8_t)(data>>24), address);
-    sramWriteByte((uint8_t)(data >>16), address + 1);
-    sramWriteByte((uint8_t)(data>>8), address + 2);
-    sramWriteByte((uint8_t)data, address + 3);
+    uint8_t data_[4];
+
+    data_[0] = (uint8_t)(data>>24);
+    data_[1] = (uint8_t)(data>>16);
+    data_[2] = (uint8_t)(data>>8);
+    data_[3] = (uint8_t)(data);
+    sramWrite(data_, 4,address);
 }
-
-
-/* Writing One Byte Process:
->> 1byte: command Instruction [SRAM_WRITE]
->> 3bytes: 24 bit address
->> 1byte: Data Stream
-*/
-void sramWriteStringPoll(char *data, uint32_t address, uint16_t size){
-    address = (((uint32_t)SRAM_WRITE) << 24) | address;
-    spiStart();
-    sendInstruction(address); 
-    spiWritePoll_((uint8_t *)data, size);
-    spiStop(); 
-}
-
 
 /* Writing One Byte Process:spiWritePoll
 >> 1byte: command Instruction [SRAM_READ]
 >> 3bytes: 24 bit address
 >> 1byte: Data out
 */
-void sramReadByte(uint8_t *c, uint32_t address){
-    address = (((uint32_t)SRAM_READ) << 24) | address; // Combine Command instruction to the address data
-    *c = 0x00;
 
-    spiStart();                        // CS low
-    sendInstruction(address);          // Send instruction + address
-    SPDR = 0x00;
-    while(!(SPSR & (1<<SPIF))){}       // Check flag to confirm the data is ready to be read.
-    *c = SPDR;                       // Get data from buffer
-    spiStop();   
-}
+uint8_t sramRead(uint8_t *buffer, uint16_t length, uint32_t address){
+    while(systemConfig.spi.interruptFLag == SPI_IT_RUNNING_RECEIVE || systemConfig.spi.interruptFLag == SPI_IT_RUNNING_TRANSMIT){__builtin_avr_delay_cycles(1);}
+    memset(sram.buffer, 0, sizeof(sram.buffer));
+    buildInstruction(address, SRAM_READ);
 
-void sramReadU16(uint16_t *data, uint32_t address){
-    *data = 0x00;
-    uint8_t byte = 0x00;
-    sramReadByte(&byte, address);
-    *data |= ((uint16_t) byte) << 8;
-    sramReadByte(&byte, address  + 1);
-    *data |= ((uint16_t) byte);
-}
-
-void sramReadU32(uint32_t *data, uint32_t address){
-    *data = 0x00;
-    uint8_t byte = 0x00;
-    sramReadByte(&byte, address);
-    *data |= ((uint32_t) byte) << 24;
-    sramReadByte(&byte, address  + 1);
-    *data |= ((uint32_t) byte) << 16;
-    sramReadByte(&byte, address  + 2);
-    *data |= ((uint32_t) byte) << 8;
-    sramReadByte(&byte, address  + 3);
-    *data |= ((uint32_t) byte);
-}
-
-void sramReadString(uint8_t *buffer, size_t len, uint32_t address){
-    address = (((uint32_t)SRAM_READ) << 24) | address;
+    cli();
     spiStart();
-    sendInstruction(address); 
-    spiReadPoll_((uint8_t *)buffer, len);
-    spiStop(); 
+    __spiWritePoll__((uint8_t *)sram.buffer, SRAM_INSTRUCTION_SIZE);
+
+    uint8_t data_len = (length > (sizeof(sram.buffer) - SRAM_INSTRUCTION_SIZE))? sizeof(sram.buffer) : length;
+    memcpy(&sram.buffer[0], buffer, data_len);
+    return spiReceive((char *)buffer, data_len); 
+}
+
+void sramReadU16(uint16_t *buffer, uint32_t address){
+    uint8_t isr = systemConfig.spi.conf.mode_conf.irq;
+    systemConfig.spi.conf.mode_conf.irq = 0;
+    cli();
+    *buffer = 0x00;
+    uint8_t data[2] = {0};
+    uint8_t status = sramRead(data, 2, address);
+    *buffer = ((uint16_t) data[0]) << 8;
+    *buffer |= ((uint16_t) data[1]);
+    if(isr){systemConfig.spi.conf.mode_conf.irq = 1; sei();}
+}
+
+void sramReadU32(uint32_t *buffer, uint32_t address){
+    uint8_t isr = systemConfig.spi.conf.mode_conf.irq;
+    systemConfig.spi.conf.mode_conf.irq = 0;
+    cli();
+    *buffer = 0x00;
+    uint8_t data[4] = {0};
+    uint8_t status = sramRead(data, 4,address);
+    if(status == SPI_IT_RUNNING_RECEIVE) while(systemConfig.spi.interruptFLag != SPI_IT_DONE){_delay_us(1);}
+    *buffer = ((uint32_t) data[0]) << 24;
+    *buffer |= ((uint32_t) data[1]) << 16;
+    *buffer |= ((uint32_t) data[2]) << 8;
+    *buffer |= ((uint32_t) data[3]);    
+    if(isr){systemConfig.spi.conf.mode_conf.irq = 1; sei();}
 }
 
 uint8_t sramReadModeRegister(){

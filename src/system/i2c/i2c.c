@@ -16,7 +16,6 @@ uint8_t i2cInit(){
      _delay_us(10);
     uint8_t status = ERR_OK;
     status = i2cClockConfig();
-    uartWrite_("Passed clock\n");
     if(status != ERR_OK) {return status;}
 
     return i2cModeConf();

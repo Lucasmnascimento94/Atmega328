@@ -1,33 +1,25 @@
 #include "system.h"
 
-uint16_t timeout;
-uint16_t max;
-uint8_t lastByte;
-char *buffer;
-volatile uint8_t  *CS_DDR;
-volatile uint8_t  *CS_PORT;
-volatile uint8_t  *CS_RPIN;
-uint8_t            CS_PIN;
+static uint8_t init = false;
+uint8_t *ptr_holder;
 
 uint8_t spiGPIO();
 uint8_t spiConf();
 uint8_t spitTransmitPoll(char *data, uint16_t length);
-uint8_t spiTransmitInt(uint16_t length);
 uint8_t spiReceivePoll(char *data, uint16_t length);
-uint8_t spiReceiveInt(uint16_t length);
 
 uint8_t spiInit(){
+    if(init){spiDeInit();}
 
-    uint8_t status;
+    uint8_t status = spiConf();
+    if(status != ERR_OK){uartWrite_("SPI_CONF_FAIL\n"); return status;}
+
     status = spiGPIO();
-    if(status != ERR_OK){return status;}
-
-    status = spiConf();
-    if(status != ERR_OK){return status;}
+    if(status != ERR_OK){uartWrite_("SPI_GPIO_FAIL\n");  return status;}
 
     SPI_CONF *spi = &systemConfig.spi.conf;
     uint8_t mstr = spi->mode_conf.mstr;
-    mstr = (mstr == SPI_MASTER || mstr == SPI_MASTER_SLAVE) ? 1 : 0;
+    mstr = (spi->mode_conf.mstr == SPI_MASTER || mstr == SPI_MASTER_SLAVE) ? 1 : 0;
     SPCR =  (SPCR & ~_BV(SPIE)) | ((spi->mode_conf.irq& 1u) << SPIE);        // Enable/Disable Interrupt Mode
     SPCR =  (SPCR & ~_BV(DORD)) | ((spi->mode_conf.lsbfirst & 1u)<< DORD);   // Set Data Orientation
     SPCR =  (SPCR & ~_BV(MSTR)) | ((mstr & 1u)<< MSTR);       // Enable/Disable Master Mode
@@ -39,35 +31,55 @@ uint8_t spiInit(){
 
     SPCR =  (SPCR & ~_BV(SPE))  | ((spi->mode_conf.en & 1u)<< SPE);          // Enable/Disable SPI
 
+    if(spi->mode_conf.irq){sei();}
+    init = true;
+    return ERR_OK;
+}
+
+uint8_t spiDeInit(){
+    SPCR = 0X00;
+    PORTB |=  (1<<PB5) | (1<<PB4) | (1<<PB3) | (1<<PB2);
+    DDRB &= ~(1<<PB5) & ~(1<<PB4) & ~(1<<PB3) & ~(1<<PB2);
+    *systemConfig.spi.cs_reg.CS_PORT &= ~(1<<systemConfig.spi.cs_reg.CS_PIN);
+    *systemConfig.spi.cs_reg.CS_DDR &= ~(1<<systemConfig.spi.cs_reg.CS_PIN);
+    init = false;
     return ERR_OK;
 }
 
 uint8_t spiGPIO(){
     SPI_CONF spi = systemConfig.spi.conf;
+    volatile uint8_t *CS_DDR = systemConfig.spi.cs_reg.CS_DDR;
+    volatile uint8_t *CS_PORT = systemConfig.spi.cs_reg.CS_PORT;
+    volatile uint8_t *CS_RPIN = systemConfig.spi.cs_reg.CS_RPIN;
+    uint8_t CS_PIN = systemConfig.spi.cs_reg.CS_PIN;
 
     switch (spi.mode_conf.mstr){
         case SPI_MASTER:
             DDRB |= (1<<PB5) | (1<<PB3) | (1<<PB2);
             DDRB &= ~(1<<PB4);
             PORTB |= (1<<PB5) | (1<<PB4) | (1<<PB3) | (1<<PB2);
-            _delay_us(1);
-            if((PINB & (1<<PB5)) == 0 || (PINB & (1<<PB3)) == 0 || (PINB & (1<<PB2)) == 0){return ERR_SPI_GPIO_INIT_FAIL;}
-            _delay_us(10);
+            *CS_DDR |= (1<<CS_PIN);
+            *CS_PORT |= (1<<CS_PIN);
+            __builtin_avr_delay_cycles(3);
+            if((PINB & (1<<PB5)) == 0 || (PINB & (1<<PB3)) == 0 || (PINB & (1<<PB2)) == 0 || (*CS_RPIN & (1<<CS_PIN)) == 0){return ERR_SPI_GPIO_INIT_FAIL;}
+            __builtin_avr_delay_cycles(3);
             break;
 
         case SPI_MASTER_SLAVE:
             DDRB |= (1<<PB5) | (1<<PB3);
             DDRB &= ~(1<<PB4) & ~(1<<PB2);
             PORTB |= (1<<PB5) | (1<<PB4) | (1<<PB3) | (1<<PB2);
-            _delay_us(1);
-            if((PINB & (1<<PB5)) == 0 || (PINB & (1<<PB3)) == 0 || (PINB & (1<<PB2)) == 0){return ERR_SPI_GPIO_INIT_FAIL;}
+            *CS_DDR |= (1<<CS_PIN);
+            *CS_PORT |= (1<<CS_PIN);
+            __builtin_avr_delay_cycles(3);
+            if((PINB & (1<<PB5)) == 0 || (PINB & (1<<PB3)) == 0 || (PINB & (1<<PB2)) == 0 || (*CS_RPIN & (1<<CS_PIN)) == 0){return ERR_SPI_GPIO_INIT_FAIL;}
             break;
 
         case SPI_SLAVE:
             DDRB |= (1<<PB4);
             DDRB &= ~(1<<PB5) & ~(1<<PB3) & ~(1<<PB2);
             PORTB |= (1<<PB5) | (1<<PB4) | (1<<PB3) | (1<<PB2);
-            _delay_us(1);
+            __builtin_avr_delay_cycles(3);
             if((PINB & (1<<PB4)) == 0){return ERR_SPI_GPIO_INIT_FAIL;}
             break;
             
@@ -96,33 +108,29 @@ uint8_t spiConf(){
         case 128: spi->spr1 = 1; spi->spr0 = 1; spi->spr2x = 0; break;
         default: return ERR_SPI_INVALID_MODE;
     }
-
-    timeout = systemConfig.spi.conf.timeout;
-    max = systemConfig.spi.conf.max_length;
-    buffer = systemConfig.spi.buffer;
-    CS_DDR = systemConfig.spi.cs_reg.CS_DDR;
-    CS_PORT = systemConfig.spi.cs_reg.CS_PORT;
-    CS_RPIN = systemConfig.spi.cs_reg.CS_RPIN;
-    CS_PIN = systemConfig.spi.cs_reg.CS_PIN;
     return ERR_OK;
 }
 
-uint8_t spiTransmit(char *data){
+uint8_t spiTransmit(char *data, uint16_t len){
+    //__ Sanity Check__
     if(data == NULL){return ERR_NULL_POINTER;}
-    uint16_t max = systemConfig.spi.conf.max_length;  
-    uint16_t length = (strlen(data) > max) ? max : strlen(data);
-    uint8_t status = ERR_OK;
 
+    //__Safe Buffer Length Calc__
+    uint16_t max = systemConfig.spi.conf.max_length;  
+    uint16_t length = (len > max) ? max : len;
+    systemConfig.spi.buffer_length = length;
+    
+    uint8_t status = ERR_OK;
     if(systemConfig.spi.conf.mode_conf.irq){
-        buffer = data;
-        status = spiTransmitInt(length);
-    }else{
-        status = spitTransmitPoll(data, length);
-    }
-    return status;
+        //__Store&Send Data in SPI buffer if data is sent in Interrupt Mode__
+        memcpy(systemConfig.spi.buffer, data, length); 
+        status = spiTransmitInt();
+
+    }else{status = spitTransmitPoll(data, length);}
+    return (status == ERR_OK || status == SPI_IT_RUNNING_TRANSMIT)? ERR_OK: status;
 }
 
-void spiWritePoll_(uint8_t *data, uint32_t len){
+void __spiWritePoll__(uint8_t *data, uint32_t len){
     for(uint16_t i=0; i< len; i++){
         SPDR = (uint8_t)data[i];        
         while(!(SPSR & (1<<SPIF))){}
@@ -131,6 +139,8 @@ void spiWritePoll_(uint8_t *data, uint32_t len){
 
 uint8_t spitTransmitPoll(char *data, uint16_t length){
     uint8_t status = ERR_OK;
+    //__Disable Interrupt__
+    SPCR &= ~(1 << SPIE);
     
     if ((SPCR & (1 << MSTR)) != 0) {status = spiStart();}
     if(status != ERR_OK) {return status;}
@@ -141,46 +151,41 @@ uint8_t spitTransmitPoll(char *data, uint16_t length){
 
         while(!(SPSR & (1<<SPIF))){
             __builtin_avr_delay_cycles(1);
-            if(count++ > timeout){
+            if(count++ > systemConfig.spi.conf.timeout){
                 if ((SPCR & (1 << MSTR)) != 0){spiStop();}
                 return ERR_TIMEOUT;
             }
         }
-        (void)SPDR;
-        (void)SPSR;
     }
     if ((SPCR & (1 << MSTR)) != 0) {status = spiStop();}
     return status;
 }
 
-
-uint8_t spiTransmitInt(uint16_t length){
+uint8_t spiTransmitInt(){
     static uint8_t state = SPI_STATE_START;
     static uint8_t status = ERR_OK;
-    static uint16_t tx_length = 0;
     static uint16_t tx_index = 0;
 
     if(state == SPI_STATE_START){
         if ((SPCR & (1 << MSTR)) != 0) {status = spiStart();}
         if(status != ERR_OK) {return status;}
-        tx_length = length;
-        if(buffer == NULL) {return ERR_NULL_POINTER;}
-        if(tx_length == 0) {return ERR_SPI_EMPTY_BUFFER;}
+        if(systemConfig.spi.buffer == NULL) {return ERR_NULL_POINTER;}
+        if(systemConfig.spi.buffer_length == 0) {return ERR_SPI_EMPTY_BUFFER;}
         tx_index = 0;
         state = SPI_STATE_RUNNING;
         SPCR |= (1 << SPIE);
+        sei();
     }
 
     if(state == SPI_STATE_RUNNING){
-        if(tx_index < tx_length){
-            systemConfig.spi.conf.interruptFLag = SPI_IT_RUNNING;
-            SPDR = (uint8_t)(buffer[tx_index++]);
-            return SPI_IT_RUNNING;
+        if(tx_index < systemConfig.spi.buffer_length){
+            systemConfig.spi.interruptFLag = SPI_IT_RUNNING_TRANSMIT;
+            SPDR = (uint8_t)(systemConfig.spi.buffer[tx_index++]);
+            return SPI_IT_RUNNING_TRANSMIT;
         }
         else{
-            SPCR &= ~(1 << SPIE);
             if ((SPCR & (1 << MSTR)) != 0) {status = spiStop();}
-            systemConfig.spi.conf.interruptFLag = SPI_IT_DONE;
+            systemConfig.spi.interruptFLag = SPI_IT_DONE;
             tx_index = 0;
             state = SPI_STATE_START;
             return SPI_IT_DONE;
@@ -189,7 +194,7 @@ uint8_t spiTransmitInt(uint16_t length){
     return ERR_SPI_INVALID_STATE;
 }
 
-void spiReadPoll_(uint8_t *data, uint16_t len){
+void __spiReadPoll__(uint8_t *data, uint16_t len){
     for(uint16_t i=0; i<len; i++){
         SPDR = 0x00;
         while(!(SPSR & (1<<SPIF))){}       // Check flag to confirm the data is ready to be read.
@@ -197,23 +202,21 @@ void spiReadPoll_(uint8_t *data, uint16_t len){
     }
 }
 
-uint8_t spiReceive(char *data){
-    if(data == NULL){return ERR_NULL_POINTER;}
+uint8_t spiReceive(char *buffer, uint16_t len){
+    if(buffer == NULL){return ERR_NULL_POINTER;}
     uint16_t max = systemConfig.spi.conf.max_length;  
-    uint16_t length = (strlen(data) > max) ? max : strlen(data);
+    uint16_t length = (len > max) ? max : len;
+    systemConfig.spi.buffer_length = length;
     uint8_t status = ERR_OK;
     
-    if(systemConfig.spi.conf.mode_conf.irq){
-        buffer = data;
-        status = spiReceiveInt(length);
-    }else{
-        status = spiReceivePoll(data, length);
-    }
-    return status;
+    if(systemConfig.spi.conf.mode_conf.irq){ptr_holder = buffer; status = spiReceiveInt();
+    }else{status = spiReceivePoll(buffer, length);}
+    return (status == ERR_OK || status == SPI_IT_RUNNING_RECEIVE)? ERR_OK: status;
 }
 
 uint8_t spiReceivePoll(char *data, uint16_t length){
     uint8_t status = ERR_OK;
+    SPCR &= ~(1 << SPIE);
     
     if ((SPCR & (1 << MSTR)) != 0) {status = spiStart();}
     if(status != ERR_OK) {return status;}
@@ -224,7 +227,7 @@ uint8_t spiReceivePoll(char *data, uint16_t length){
 
         while(!(SPSR & (1<<SPIF))){
             __builtin_avr_delay_cycles(1);
-            if(count++ > timeout){
+            if(count++ > systemConfig.spi.conf.timeout){
                 if ((SPCR & (1 << MSTR)) != 0){spiStop();}
                 return ERR_TIMEOUT;
             }
@@ -235,58 +238,44 @@ uint8_t spiReceivePoll(char *data, uint16_t length){
     return status;
 }
 
-uint8_t spiReceiveInt(uint16_t length){
+uint8_t spiReceiveInt(){
     static uint8_t state = SPI_STATE_START;
     static uint8_t status = ERR_OK;
-    static uint16_t tx_length = 0;
     static uint16_t tx_index = 0;
 
     if(state == SPI_STATE_START){
-        tx_length = length;
-        
-        if(buffer == NULL) { return ERR_NULL_POINTER; }
-        if(tx_length == 0) { return ERR_SPI_EMPTY_BUFFER; }
-        
+        if ((SPCR & (1 << MSTR)) != 0) {status = spiStart();}
+        if(status != ERR_OK) {return status;}
+        if(systemConfig.spi.buffer == NULL) {return ERR_NULL_POINTER;}
         tx_index = 0;
         state = SPI_STATE_RUNNING;
-        
-        SPCR |= (1 << SPIE); 
+        SPCR |= (1 << SPIE);
+        sei();
 
-        if ((SPCR & (1 << MSTR)) != 0) {
-            status = spiStart();
-            if(status != ERR_OK) { return status; }
-            
-            SPDR = 0xFF; 
-            return SPI_STATE_RUNNING;
-        }
-        else {
-            return SPI_STATE_RUNNING;
+        if ((SPCR & (1 << MSTR)) != 0){
+            SPDR = 0XFF;
+            systemConfig.spi.interruptFLag = SPI_IT_RUNNING_RECEIVE;
+            return SPI_IT_RUNNING_RECEIVE;
         }
     }
 
     if(state == SPI_STATE_RUNNING){
-        
-        buffer[tx_index++] = SPDR; 
+        systemConfig.spi.buffer [tx_index++] = SPDR; 
 
-        if(tx_index < tx_length){
-            systemConfig.spi.conf.interruptFLag = SPI_IT_RUNNING;
-            
-            if ((SPCR & (1 << MSTR)) != 0){
-                SPDR = 0xFF;
-            }
-            return SPI_IT_RUNNING;
+        if(tx_index < systemConfig.spi.buffer_length){
+            systemConfig.spi.interruptFLag = SPI_IT_RUNNING_RECEIVE;
+            if ((SPCR & (1 << MSTR)) != 0){SPDR = 0xFF;}
+            return SPI_IT_RUNNING_RECEIVE;
         }
         else{
-            SPCR &= ~(1 << SPIE); 
-            
-            if ((SPCR & (1 << MSTR)) != 0) {
-                status = spiStop();
-            }
-            
-            systemConfig.spi.conf.interruptFLag = SPI_IT_DONE;
+            if ((SPCR & (1 << MSTR)) != 0) {status = spiStop();}
             tx_index = 0;
             state = SPI_STATE_START;
-            
+            memcpy(ptr_holder, systemConfig.spi.buffer, systemConfig.spi.buffer_length);
+            systemConfig.spi.buffer_length = 0;
+            (void)SPSR;
+            (void)SPDR;
+            systemConfig.spi.interruptFLag = SPI_IT_DONE;
             return SPI_IT_DONE;
         }
     }
@@ -294,11 +283,17 @@ uint8_t spiReceiveInt(uint16_t length){
 }
 
 uint8_t spiStart(){
-    *CS_PORT &= ~(1<<CS_PIN);
-    return ((*CS_RPIN & (1<<CS_PIN)) == 0)? ERR_OK : ERR_SPI_CS_ENABLE_FAIL;
+    *systemConfig.spi.cs_reg.CS_PORT &= ~(1<<systemConfig.spi.cs_reg.CS_PIN);
+    __builtin_avr_delay_cycles(1);
+    uint8_t status = ((*systemConfig.spi.cs_reg.CS_RPIN & (1<<systemConfig.spi.cs_reg.CS_PIN)) == 0)? ERR_OK : ERR_SPI_CS_ENABLE_FAIL;
+    if(status == ERR_SPI_CS_ENABLE_FAIL){uartWrite_("ERR_SPI_CS_ENABLE_FAIL\n");}
+    return ERR_OK;
 }
 
 uint8_t spiStop(){
-    *CS_PORT |= (1<<CS_PIN);
-    return ((*CS_RPIN & (1<<CS_PIN)) == 0)? ERR_SPI_CS_ENABLE_FAIL : ERR_OK;
+    *systemConfig.spi.cs_reg.CS_PORT |= (1<<systemConfig.spi.cs_reg.CS_PIN);
+    __builtin_avr_delay_cycles(1);
+    uint8_t status = ((*systemConfig.spi.cs_reg.CS_RPIN & (1<<systemConfig.spi.cs_reg.CS_PIN)) == 0)? ERR_SPI_CS_ENABLE_FAIL : ERR_OK;
+    if(status == ERR_SPI_CS_ENABLE_FAIL){uartWrite_("ERR_SPI_CS_ENABLE_FAIL\n");}
+    return ERR_OK;
 }

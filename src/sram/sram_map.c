@@ -10,9 +10,6 @@ typedef struct{
     uint32_t food_start;
 }BASES;
 BASES bases;
-
-#if (GAME == SNAKE)
-
 void computeBlockSizes(){
     sram_map.score.block_size   = 5 + sizeof(sram_map.score) - sizeof(sram_map.score.block_size); 
     sram_map.cmd.block_size     = 5 + sizeof(sram_map.cmd) - sizeof(sram_map.cmd.block_size);
@@ -39,7 +36,7 @@ void sharedMemoryInit(){
 /*_____ Clear SRAM_____*/
 void erase(){
     for(uint32_t i=0; i < SRAM_SIZE; i++){
-        sramWriteByte(NULL_PTR, i);
+        sramWrite(NULL_PTR, 1, i);
     }
 }
 
@@ -58,16 +55,16 @@ void pushNode(struct NODE *node){
         return;
     }
     /*______________header_____________*/
-    sramWriteStringPoll(MAGIC_NODE, NODE_MAGIC(base), 4);    // keep 4 if that's your spec
+    sramWrite((uint8_t *)MAGIC_NODE, NODE_MAGIC(base), 4);    // keep 4 if that's your spec
 
     /*_____________payload_____________*/
     sramWriteU32(node->addr, NODE_ADDR(base));
-    sramWriteByte(node->i, NODE_I(base));
-    sramWriteByte(node->j, NODE_J(base));
-    sramWriteByte(node->g, NODE_G(base));
-    sramWriteByte(node->r, NODE_R(base));
-    sramWriteByte(node->b, NODE_B(base));
-    sramWriteByte(node->opcode, NODE_OPCODE(base));
+    sramWrite(&node->i, 1, NODE_I(base));
+    sramWrite(&node->j, 1, NODE_J(base));
+    sramWrite(&node->g, 1, NODE_G(base));
+    sramWrite(&node->r, 1, NODE_R(base));
+    sramWrite(&node->b, 1, NODE_B(base));
+    sramWrite(&node->opcode, 1, NODE_OPCODE(base));
 
 
     /*_____________links (new node)____*/
@@ -85,7 +82,8 @@ void pushNode(struct NODE *node){
 
 
     /*_____________commit flag last____*/
-    sramWriteByte(FLAG_VALID, NODE_FLAGS(base));
+    uint8_t flag = FLAG_VALID;
+    sramWrite(&flag, 1, NODE_FLAGS(base));
 
     /*_____________RAM metadata________*/
     sram_map.stack.count++;
@@ -99,7 +97,8 @@ void popNode(){
     uint32_t tail        = sram_map.stack.tail;
     uint32_t prev        = NULL_PTR;
 
-    sramWriteByte(FLAG_DIRTY, NODE_FLAGS(tail));
+    uint8_t flag = FLAG_VALID;
+    sramWrite(&flag, 1, NODE_FLAGS(tail));
 
     /*_____________retrieve next tail addr____*/
     sramReadU32(&prev, NODE_PREV(tail));
@@ -116,9 +115,9 @@ void popNode(){
     }
     
     /*_____________Clear Block________*/
-    for(uint32_t i=0; i<bs; i++){
-        sramWriteByte(0x00, tail+i);
-    }
+    uint8_t buff[bs];
+    for(uint32_t i=0; i<bs; i++){buff[i] = 0;}
+    sramWrite(buff, bs, tail);
 
     /*_____________RAM metadata________*/
     sram_map.stack.current_node = tail; 
@@ -130,7 +129,7 @@ void readNode(struct NODE *node, uint32_t base){
     char c[40];
     char magic[5];
     magic[4] = '\0';
-    sramReadString((uint8_t *)magic, 4, NODE_MAGIC(base));
+    sramRead((uint8_t *)magic, 4, NODE_MAGIC(base));
     if(strcmp(magic, MAGIC_NODE) != 0){
         uartWrite_("Error... <Invalid Header> \n");
         sprintf(c, "..expected..<%s>..actual..<%s>\n", MAGIC_NODE, magic);
@@ -139,24 +138,24 @@ void readNode(struct NODE *node, uint32_t base){
     sramReadU32(&node->next,      NODE_NEXT(base));
     sramReadU32(&node->prev,      NODE_PREV(base));
     sramReadU32(&node->addr,      NODE_ADDR(base));
-    sramReadByte(&node->i,        NODE_I(base));
-    sramReadByte(&node->j,        NODE_J(base));
-    sramReadByte(&node->g,        NODE_G(base));
-    sramReadByte(&node->r,        NODE_R(base));
-    sramReadByte(&node->b,        NODE_B(base));
-    sramReadByte(&node->opcode,   NODE_OPCODE(base));
+    sramRead(&node->i,        1, NODE_I(base));
+    sramRead(&node->j,        1, NODE_J(base));
+    sramRead(&node->g,        1, NODE_G(base));
+    sramRead(&node->r,        1, NODE_R(base));
+    sramRead(&node->b,        1, NODE_B(base));
+    sramRead(&node->opcode,   1, NODE_OPCODE(base));
 }
 
 void updateNode(struct NODE *node, uint32_t base){
     sramWriteU32(node->next,      NODE_NEXT(base));
     sramWriteU32(node->prev,      NODE_PREV(base));
     sramWriteU32(node->addr,      NODE_ADDR(base));
-    sramWriteByte(node->i,        NODE_I(base));
-    sramWriteByte(node->j,        NODE_J(base));
-    sramWriteByte(node->g,        NODE_G(base));
-    sramWriteByte(node->r,        NODE_R(base));
-    sramWriteByte(node->b,        NODE_B(base));
-    sramWriteByte(node->opcode,   NODE_OPCODE(base));
+    sramWrite(&node->i,        1, NODE_I(base));
+    sramWrite(&node->j,        1, NODE_J(base));
+    sramWrite(&node->g,        1, NODE_G(base));
+    sramWrite(&node->r,        1, NODE_R(base));
+    sramWrite(&node->b,        1, NODE_B(base));
+    sramWrite(&node->opcode,   1, NODE_OPCODE(base));
 }
 
 void loadFood(struct NODE *food){
@@ -165,25 +164,25 @@ void loadFood(struct NODE *food){
 
 
     if(init){
-        sramWriteStringPoll(MAGIC_NODE, NODE_MAGIC(base), 4);
+        sramWrite((uint8_t *)MAGIC_NODE, NODE_MAGIC(base), 4);
         init = false;
         sram_map.stack.food = base;
     }
     
     sramWriteU32(food->addr, NODE_ADDR(base));
-    sramWriteByte(food->i, NODE_I(base));
-    sramWriteByte(food->j, NODE_J(base));
-    sramWriteByte(food->g, NODE_G(base));
-    sramWriteByte(food->r, NODE_R(base));
-    sramWriteByte(food->b, NODE_B(base));
-    sramWriteByte(food->opcode, NODE_OPCODE(base));
+    sramWrite(&food->i, 1, NODE_I(base));
+    sramWrite(&food->j, 1, NODE_J(base));
+    sramWrite(&food->g, 1, NODE_G(base));
+    sramWrite(&food->r, 1, NODE_R(base));
+    sramWrite(&food->b, 1, NODE_B(base));
+    sramWrite(&food->opcode, 1, NODE_OPCODE(base));
     bufferWrite(food->g, food->r, food->b, food->addr);
 }
 
 void loadStack(){
     uint32_t base = bases.stack_start;
     /*______________header_____________*/
-    sramWriteStringPoll(MAGIC_STACK, STACK_MAGIC(bases.stack_start), 4);    // keep 4 if that's your spec
+    sramWrite((uint8_t *)MAGIC_STACK, STACK_MAGIC(bases.stack_start), 4);    // keep 4 if that's your spec
 
     /*_____________payload_____________*/
     sramWriteU16(sram_map.stack.count,        STACK_COUNT(base));
@@ -195,12 +194,12 @@ void loadStack(){
     sramWriteU32(NULL_PTR, STACK_FOOD(base));
 
     /*_____________commit flag last____*/
-    sramWriteByte(FLAG_VALID, STACK_FLAGS(base));
+    uint8_t flag[1] = {FLAG_VALID};
+    sramWrite(flag, 1, STACK_FLAGS(base));
 
 }
 
 void loadBufferFromStack(){
-    char c[70];
     uint32_t addr_head = sram_map.stack.head;
     uint32_t count = sram_map.stack.count;
     if(count == 0) return;
@@ -217,15 +216,14 @@ void bufferWrite(uint8_t g, uint8_t r, uint8_t b,  uint32_t index){
 
     uint32_t addr = index*3 + BUFFER_DATA(bases.buffer_start);
     if(addr > (BUFFER_DATA(bases.buffer_start) + (uint32_t)sram_map.buffer.block_size)) return;
-    sramWriteByte(g, addr++);
-    sramWriteByte(r, addr++);
-    sramWriteByte(b, addr);
+    sramWrite(&g, 1, addr++);
+    sramWrite(&r, 1, addr++);
+    sramWrite(&b, 1, addr);
 }
 
 
 void bufferClear(){
     for(int i=0; i<SCREEN_BUFFER_SIZE*3; i++){
-        bufferWrite(0, 0, 0, i);
     }
 
 }
@@ -233,7 +231,6 @@ void bufferClear(){
 void buferClear(){
     uint32_t addr = BUFFER_DATA(bases.buffer_start);
     for(; addr < SCREEN_BUFFER_SIZE; addr++){
-        sramWriteByte(NULL_PTR, addr);
     }
 }
 
@@ -243,7 +240,7 @@ void loadCommand(){
     uint32_t base        = bases.cmd_start;
 
     /*______________header_____________*/
-    sramWriteStringPoll(MAGIC_COMMANDS, COMMANDS_MAGIC(base), 2);    // keep 4 if that's your spec
+    sramWrite((uint8_t *)MAGIC_COMMANDS, COMMANDS_MAGIC(base), 2);    // keep 4 if that's your spec
 
     /*_____________payload_____________*/
     sramWriteU32(sram_map.cmd.cmdID,            COMMANDS_CMDID(base));
@@ -252,7 +249,8 @@ void loadCommand(){
     sramWriteU16(sram_map.cmd.arg3,             COMMANDS_ARGS3(base));
 
     /*_____________commit flag last____*/
-    sramWriteByte(FLAG_VALID, COMMANDS_FLAGS(base));
+    uint8_t flag[1] = {FLAG_VALID};
+    sramWrite(flag, 1, COMMANDS_FLAGS(base));
 }
 
 void getCommand(){
@@ -268,16 +266,17 @@ void getCommand(){
 void loadScore(){
     uint32_t base = bases.score_start;
     /*______________header_____________*/
-    sramWriteStringPoll(MAGIC_SCORE, SCORE_MAGIC(base), 4);    // keep 4 if that's your spec
+    sramWrite((uint8_t *)MAGIC_SCORE, 4, SCORE_MAGIC(base));
 
     /*_____________payload_____________*/
     sramWriteU16(sram_map.score.record_score,          SCORE_HRECORD(base));
     sramWriteU16(sram_map.score.current_score,         SCORE_CRECORD(base));
-    if(sram_map.score.player_name != NULL){sramWriteStringPoll((char *)sram_map.score.player_name,    SCORE_PNAME(base), 12);}
-    if(sram_map.score.game_name != NULL){sramWriteStringPoll((char *)sram_map.score.game_name,      SCORE_GNAME(base), 12);}
+    if(sram_map.score.player_name != NULL){sramWrite(sram_map.score.player_name,  12, SCORE_PNAME(base));}
+    if(sram_map.score.game_name != NULL){sramWrite(sram_map.score.game_name, 12, SCORE_GNAME(base));}
 
     /*_____________commit flag last____*/
-    sramWriteByte(FLAG_VALID, SCORE_FLAGS(base));
+    uint8_t flag[1] = {FLAG_VALID};
+    sramWrite(flag, 1, SCORE_FLAGS(base));
 }
 
 void getScore(){
@@ -288,13 +287,8 @@ void getScore(){
     sramReadU16(&sram_map.score.record_score, SCORE_HRECORD(base));
     sramReadU16(&sram_map.score.current_score, SCORE_CRECORD(base));
     if(!nameRead){
-        sramReadString(sram_map.score.player_name, 12, SCORE_PNAME(base)); 
-        sramReadString(sram_map.score.game_name, 12, SCORE_GNAME(base));
+        sramRead(sram_map.score.player_name, 12, SCORE_PNAME(base)); 
+        sramRead(sram_map.score.game_name, 12, SCORE_GNAME(base));
         nameRead = true;
     }
 }
-#elif (GAME == SPACE)
-
-#elif (GAME == PONG)
-
-#endif

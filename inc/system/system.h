@@ -5,10 +5,13 @@
 #include "spi.h"
 #include "i2c.h"
 #include "uart.h"
-
+#define SYSTEMDEBUG 1
 
 
 uint8_t systemInit();
 
+#if SYSTEMDEBUG == 1
+void systemDisplay();
+#endif
 #endif
 /*Default*/

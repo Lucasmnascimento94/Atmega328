@@ -1,7 +1,7 @@
 #include "system.h"
 #include "screen.h"
 #include "sram_map.h"
-
+#include "isr.h"
 void sramtesting();
 
 
@@ -9,21 +9,29 @@ SCREEN screen;
 int main(void){
     char *msg = "hello here\n";
     if(systemInit() != ERR_OK) {return 0;}
-    uartWrite_("passed system\n");
+    systemDisplay();
+
+
     screenInit(&screen, true);
-    screenWrite(&screen, "hello from the new API");
-    sramtesting();
+    _delay_ms(100);
+    screenWrite(&screen, "hello");
+    //sramtesting();
+
+    _delay_ms(500);
+    //sramWrite("TALKING TO SRAM\n", 16, 0x00);
+    uint8_t s[20];
+    //sramRead(&s, 16, 0x00);
+    while(systemConfig.spi.interruptFLag != SPI_IT_DONE){_delay_us(1);}
+    uartWrite_(s);
+
     while(true){
         uartWrite_(msg);
-        _delay_ms(1000);
+        _delay_ms(500);
     }
 }
 
 
 void sramtesting(){
-    sram_map.cmd.arg1 = 0xAA;
-    sram_map.cmd.arg2 = 0XBB;
-    sram_map.cmd.arg3 = 0XCC;
 
     sram_map.score.current_score = 0X81;
     sram_map.score.record_score = 0X99;
@@ -31,18 +39,12 @@ void sramtesting(){
     strcpy((char *)sram_map.score.player_name, "LUCAS NASC");
     
     loadScore();
-    //loadCommand();
-    sram_map.cmd.cmdID = 0;
-    sram_map.cmd.arg1 = 0;
-    sram_map.cmd.arg2 = 0;
-    sram_map.cmd.arg3 = 0;
 
     sram_map.score.current_score = 0;
     sram_map.score.record_score = 0;
     memset(sram_map.score.game_name, 0, 12);
     memset(sram_map.score.player_name, 0, 12);
 
-    getCommand();
     getScore();
     uartWrite_("GAME NAME: ");
     _delay_us(200);

@@ -28,11 +28,14 @@ enum __attribute__((__packed__)) spiCodes{
     SPI_MASTER = 2,
     SPI_MASTER_SLAVE = 3,
     SPI_SLAVE = 4,
+    SPI_MODE_POL = 10,
+
+    // SPI STATE MACHINE
     SPI_STATE_START = 5,
     SPI_STATE_RUNNING = 6,
-    SPI_IT_RUNNING = 7,
-    SPI_IT_DONE = 8,
-    SPI_MODE_POL = 10,
+    SPI_IT_RUNNING_TRANSMIT = 7,
+    SPI_IT_RUNNING_RECEIVE = 8,
+    SPI_IT_DONE = 9,
 
         // SPI ERR_CODES
     ERR_SPI_INVALID_MODE = 1,

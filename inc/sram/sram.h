@@ -33,20 +33,20 @@ SetUp       -> Falling
 3 - Write Byte
 
 */
-
-void sendInstruction(uint32_t address);
-
-void sramWriteByte(uint8_t data, uint32_t address);
+typedef struct{
+    char buffer[100];
+    uint8_t err_code;
+}SRAM;
+uint8_t sramWrite(uint8_t *data, uint16_t length, uint32_t address);
 void sramWriteU16(uint16_t data, uint32_t address);
 void sramWriteU32(uint32_t data, uint32_t address);
-void sramWriteStringPoll(char *data, uint32_t address, uint16_t size);
 
-void sramReadByte(uint8_t *data, uint32_t address);
+uint8_t sramRead(uint8_t *c, uint16_t length, uint32_t address);
 void sramReadU16(uint16_t *data, uint32_t address);
 void sramReadU32(uint32_t *data, uint32_t address);
-void sramReadString(uint8_t *data, size_t len, uint32_t address);
-void sramReadBuffer(uint32_t size, uint32_t addr_start);
 
 uint8_t sramReadModeRegister();
 void sramWriteModeRegister(uint8_t mode);
+
+extern SRAM sram;
 #endif
