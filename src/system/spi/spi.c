@@ -177,21 +177,6 @@ uint8_t spiTransmitInt(){
         sei();
     }
 
-    if(state == SPI_STATE_RUNNING){
-        if(tx_index < systemConfig.spi.buffer_length){
-            systemConfig.spi.interruptFLag = SPI_IT_RUNNING_TRANSMIT;
-            SPDR = (uint8_t)(systemConfig.spi.buffer[tx_index++]);
-            return SPI_IT_RUNNING_TRANSMIT;
-        }
-        else{
-            if ((SPCR & (1 << MSTR)) != 0) {status = spiStop();}
-            systemConfig.spi.interruptFLag = SPI_IT_DONE;
-            tx_index = 0;
-            state = SPI_STATE_START;
-            return SPI_IT_DONE;
-        }
-    }
-    return ERR_SPI_INVALID_STATE;
 }
 
 void __spiReadPoll__(uint8_t *data, uint16_t len){
