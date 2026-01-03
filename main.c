@@ -2,6 +2,7 @@
 #include "screen.h"
 #include "sram_map.h"
 #include "isr.h"
+#include "tim.h"
 void sramtesting();
 
 
@@ -9,25 +10,28 @@ SCREEN screen;
 int main(void){
     char *msg = "hello here\n";
     if(systemInit() != ERR_OK) {return 0;}
-    systemDisplay();
+    DDRD |= (1<<PD6);
+    setTimer();
+    //systemDisplay();
 
 
     screenInit(&screen, true);
     _delay_ms(100);
     screenWrite(&screen, "hello");
+    //spiTransmit("hello", 5);
     //sramtesting();
 
     _delay_ms(500);
     //sramWrite("TALKING TO SRAM\n", 16, 0x00);
     uint8_t s[20];
     //sramRead(&s, 16, 0x00);
-    while(systemConfig.spi.interruptFLag != SPI_IT_DONE){_delay_us(1);}
+    //while(systemConfig.spi.interruptFLag != SPI_IT_DONE){_delay_us(1);}
     uartWrite_(s);
 
     while(true){
-        uartWrite_(systemConfig.spi.buffer);
-        uartWrite_("\n");
-        _delay_ms(500);
+        //if(systemConfig.spi.interruptFLag == ERR_TIMEOUT){uartWrite_(systemConfig.spi.buffer); uartWrite_("\n"); systemConfig.spi.interruptFLag = SPI_IT_DONE;}
+        //uartWrite_(systemConfig.spi.buffer);
+        _delay_ms(1000);
     }
 }
 

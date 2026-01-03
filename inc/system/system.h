@@ -5,7 +5,7 @@
 #include "spi.h"
 #include "i2c.h"
 #include "uart.h"
-#define SYSTEMDEBUG 1
+#define SYSTEMDEBUG 0
 
 
 uint8_t systemInit();

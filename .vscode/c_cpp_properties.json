@@ -14,7 +14,6 @@
                 "${workspaceFolder}/inc/system/**",
                 "${workspaceFolder}/inc/screen",
                 "${workspaceFolder}/inc/sram",
-                "${workspaceFolder}/inc/tim",
                 "${workspaceFolder}/inc/sram",
                 "${workspaceFolder}/src/"
             ],

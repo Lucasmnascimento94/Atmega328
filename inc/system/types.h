@@ -34,29 +34,20 @@ typedef struct {
 }SPI_CS_TARGET;
 
 typedef struct{
-  uint8_t mode; // 0,1,2,3  (SRAM likes 0)
+  uint16_t timeout;
+  uint16_t max_length;
+  uint8_t clk_mode; // 0,1,2,3  (SRAM likes 0)
   uint8_t lsbfirst; // 1=MSB first, 0=LSB first
   uint8_t prescaler; // 2,4,8,16,32,64,128
   uint8_t irq; // 1=use SPI interrupt, 0=poll 
-  uint8_t en;  // SPI Enable(1) Disable(0)
-  uint8_t mstr; // SPI MODES
-}SPI_MODE;
-
-typedef struct{
-  uint8_t cpol;
-  uint8_t cpha;
-  uint8_t spr2x;
-  uint8_t spr1;
-  uint8_t spr0;
-  uint16_t timeout;
-  uint16_t max_length;
-  SPI_MODE mode_conf;
+  uint8_t spi_mode; // SLAVE, MASTER, MASTER_SLAVE
 }SPI_CONF;
 
 typedef struct {
   SPI_CONF conf;
   SPI_CS_TARGET  cs_reg;
   char buffer[100];
+  uint8_t index;
   uint8_t buffer_length;
   volatile uint8_t interruptFLag;
 }SPI;
@@ -106,6 +97,24 @@ typedef struct {
  *  Reference:
  *    - UART Application Note : ./documentation/protocols/UART.md
  *============================================================================*/
+struct TIM0 { 
+  uint16_t prescaler;
+  uint16_t frequency;
+  uint8_t mode;
+  uint8_t OCR0A_VAL;
+};
+ typedef struct{
+  struct TIM0 tim0;
+  uint8_t errFlag;
+ }TIM;
+ 
+
+/*==============================================================================
+ *  UART MODULE CONFIGURATION
+ *==============================================================================
+ *  Reference:
+ *    - UART Application Note : ./documentation/protocols/UART.md
+ *============================================================================*/
 typedef struct{
     uint16_t baudrate;
     uint8_t  frame_size; // 5,6,7,8,9 bits
@@ -116,13 +125,19 @@ typedef struct{
 }UART;
 
 
+/*==============================================================================
+ *  UART MODULE CONFIGURATION
+ *==============================================================================
+ *  Reference:
+ *    - UART Application Note : ./documentation/protocols/UART.md
+ *============================================================================*/
 typedef struct{
     I2C i2c;
     SPI spi;
     UART uart;
+    TIM tim;
     uint32_t FOSC;
 }SYSTEM;
 
 extern SYSTEM systemConfig;
-
 #endif

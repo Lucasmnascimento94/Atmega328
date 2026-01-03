@@ -9,11 +9,14 @@ enum __attribute__((__packed__)) errCode {
     ERR_INVALID_PARAM = 3,
     ERR_BUFFER_OVERFLOW = 4,
     ERR_NULL_POINTER = 5,
+    ERR_INVALID_MODE = 6,
+    ERR_GPIO_INIT_FAIL = 7,
+    ERR_CS_ENABLE_FAIL = 8,
+    ERR_EMPTY_BUFFER = 9,
+    SPI_INVALID_STATE = 10,
 
-
-    // I2C ERR CODES
-    ERR_UART_INVALID_MODE = 9,
-    ERR_SPI_BUSY = 11,
+    ERR_UART_INVALID_MODE = 11,
+    ERR_SPI_BUSY = 12,
     ERR_UNKNOWN = 255,
 };
 
@@ -36,13 +39,10 @@ enum __attribute__((__packed__)) spiCodes{
     SPI_IT_RUNNING_TRANSMIT = 7,
     SPI_IT_RUNNING_RECEIVE = 8,
     SPI_IT_DONE = 9,
+    SPI_START = 10,
+    SPI_STOP = 11,
 
         // SPI ERR_CODES
-    ERR_SPI_INVALID_MODE = 1,
-    ERR_SPI_GPIO_INIT_FAIL = 2,
-    ERR_SPI_CS_ENABLE_FAIL = 3,
-    ERR_SPI_NOT_MASTER = 4,
-    ERR_SPI_NOT_SLAVE = 5,
     ERR_SPI_EMPTY_BUFFER = 6,
     ERR_SPI_INVALID_STATE = 7,
 };

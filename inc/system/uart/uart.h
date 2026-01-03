@@ -5,5 +5,6 @@
 uint8_t uartInit();
 void uartWrite(char *c, uint16_t size);
 void uartWrite_(char *c);
+void uartWriteToBinary(uint8_t val);
 
 #endif

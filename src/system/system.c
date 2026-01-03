@@ -6,12 +6,11 @@ SYSTEM systemConfig = {
     // SPI DEFAULT CONFIGURATION
     .spi.conf.max_length = 256,
     .spi.conf.timeout = 1000,
-    .spi.conf.mode_conf.en = SPI_ENABLE,
-    .spi.conf.mode_conf.irq = true,
-    .spi.conf.mode_conf.lsbfirst = SPI_MSB,
-    .spi.conf.mode_conf.mstr = SPI_MASTER_SLAVE,
-    .spi.conf.mode_conf.prescaler = 4,
-    .spi.conf.mode_conf.mode = 0,
+    .spi.conf.irq = true,
+    .spi.conf.lsbfirst = SPI_MSB,
+    .spi.conf.spi_mode = SPI_SLAVE,
+    .spi.conf.prescaler = 2,
+    .spi.conf.clk_mode = 0,
     .spi.cs_reg.CS_DDR = &DDRB,
     .spi.cs_reg.CS_PORT = &PORTB,
     .spi.cs_reg.CS_RPIN = &PINB,
@@ -19,6 +18,7 @@ SYSTEM systemConfig = {
     .spi.buffer = {'\0'},
     .spi.interruptFLag = SPI_IT_DONE,
     .spi.buffer_length = 100,
+    .spi.index = 0,
 
     // I2C DEFAULT CONFIGURATION
     .i2c.frequency = 400000UL,
@@ -30,7 +30,12 @@ SYSTEM systemConfig = {
     .uart.frame_size = 8,
     .uart.irq_enable = false,
     .uart.parity = 1,
-    .uart.stop_bits = 0
+    .uart.stop_bits = 0,
+
+
+    // TIM
+    .tim.tim0.frequency = 100,
+    .tim.tim0.prescaler = 1024
 };
 
 uint8_t systemInit() {
@@ -55,7 +60,6 @@ uint8_t systemInit() {
 }
 
 
-
 #if SYSTEMDEBUG == 1
 
 void systemDisplay(){
@@ -66,20 +70,18 @@ void systemDisplay(){
     sprintf(s, "SPI CONF.\n \
                  max_length: %d\n \
                  timeout: %d\n \
-                 enable: %d\n \
                  irq: %d\n \
                  lsbfirst: %d\n \
-                 mstr: %d\n \
+                 spi_mode: %d\n \
                  prescaler: %d\n \
-                 mode: %d\n\n", 
+                 clk_mode: %d\n\n", 
                  systemConfig.spi.conf.max_length,
                  systemConfig.spi.conf.timeout,
-                 systemConfig.spi.conf.mode_conf.en,
-                 systemConfig.spi.conf.mode_conf.irq,
-                 systemConfig.spi.conf.mode_conf.lsbfirst,
-                 systemConfig.spi.conf.mode_conf.mstr,
-                 systemConfig.spi.conf.mode_conf.prescaler,
-                systemConfig.spi.conf.mode_conf.mode);
+                 systemConfig.spi.conf.irq,
+                 systemConfig.spi.conf.lsbfirst,
+                 systemConfig.spi.conf.spi_mode,
+                 systemConfig.spi.conf.prescaler,
+                systemConfig.spi.conf.clk_mode);
     uartWrite_(s);
 
     sprintf(s, "I2C CONF.\n \
@@ -91,6 +93,20 @@ void systemDisplay(){
                  systemConfig.i2c.frequency,
                  systemConfig.i2c.prescaler,
                  systemConfig.i2c.mode);
+    uartWrite_(s);
+
+
+    sprintf(s, "TIM0 CONF.\n \
+                 prescaler: %u\n \
+                 frequency: %u\n \
+                 mode: %d\n \
+                 errFLag: %d\n \
+                 OCR0A: %u\n\n",
+                 systemConfig.tim.tim0.prescaler,
+                 systemConfig.tim.tim0.frequency,
+                 systemConfig.tim.tim0.mode,
+                 systemConfig.tim.errFlag,
+                 systemConfig.tim.tim0.OCR0A_VAL);
     uartWrite_(s);
 
 }

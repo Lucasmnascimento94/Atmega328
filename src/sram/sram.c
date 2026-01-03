@@ -63,20 +63,20 @@ uint8_t sramRead(uint8_t *buffer, uint16_t length, uint32_t address){
 }
 
 void sramReadU16(uint16_t *buffer, uint32_t address){
-    uint8_t isr = systemConfig.spi.conf.mode_conf.irq;
-    systemConfig.spi.conf.mode_conf.irq = 0;
+    uint8_t isr = systemConfig.spi.conf.irq;
+    systemConfig.spi.conf.irq = 0;
     cli();
     *buffer = 0x00;
     uint8_t data[2] = {0};
     uint8_t status = sramRead(data, 2, address);
     *buffer = ((uint16_t) data[0]) << 8;
     *buffer |= ((uint16_t) data[1]);
-    if(isr){systemConfig.spi.conf.mode_conf.irq = 1; sei();}
+    if(isr){systemConfig.spi.conf.irq = 1; sei();}
 }
 
 void sramReadU32(uint32_t *buffer, uint32_t address){
-    uint8_t isr = systemConfig.spi.conf.mode_conf.irq;
-    systemConfig.spi.conf.mode_conf.irq = 0;
+    uint8_t isr = systemConfig.spi.conf.irq;
+    systemConfig.spi.conf.irq = 0;
     cli();
     *buffer = 0x00;
     uint8_t data[4] = {0};
@@ -86,7 +86,7 @@ void sramReadU32(uint32_t *buffer, uint32_t address){
     *buffer |= ((uint32_t) data[1]) << 16;
     *buffer |= ((uint32_t) data[2]) << 8;
     *buffer |= ((uint32_t) data[3]);    
-    if(isr){systemConfig.spi.conf.mode_conf.irq = 1; sei();}
+    if(isr){systemConfig.spi.conf.irq = 1; sei();}
 }
 
 uint8_t sramReadModeRegister(){

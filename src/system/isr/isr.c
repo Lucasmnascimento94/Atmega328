@@ -3,20 +3,14 @@
 #include "i2c.h"
 #include "uart.h"
 #include "sram.h"
-
+#include "err.h"
+#include "tim.h"
 // SPI Transfer Complete ISR
+static index = 0;
 ISR(SPI_STC_vect){
-    uint8_t flow = systemConfig.spi.interruptFLag;
-    if(flow == SPI_IT_RUNNING_TRANSMIT){
-        spiTransmitInt();
-    }else if(SPI_IT_RUNNING_RECEIVE){
-        spiReceiveInt();
-    }else if(SPI_IT_DONE){
-        systemConfig.spi.conf.mode_conf.mode = SPI_SLAVE;
-        systemConfig.spi.interruptFLag = SPI_IT_RUNNING_RECEIVE;
-        spiInit();
-        // Triggered by SS pulled low.
-    }
+    uint8_t data = SPDR;
+    systemConfig.spi.buffer[index++] = data;
+    startTimer();
 }
 
 
@@ -48,4 +42,21 @@ ISR(PCINT1_vect){
 // Pin Change Interrupt Request 2 ISR
 ISR(PCINT2_vect){
     
+}
+
+
+ISR(TIMER0_COMPA_vect){
+    static uint16_t counter = 0;
+    if(counter ++ == 20){
+        stopTimer();
+        cli();
+        uartWrite_("buffer : ");
+        uartWrite_(systemConfig.spi.buffer);
+        uartWrite_("\n");
+        systemConfig.spi.interruptFLag = ERR_TIMEOUT;
+        index = 0;
+        memset(systemConfig.spi.buffer, 0, sizeof(systemConfig.spi.buffer));
+        counter = 0;
+
+    }
 }

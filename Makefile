@@ -35,8 +35,10 @@ SRC_DIRS = \
   src/system/i2c \
   src/system/spi \
   src/system/isr \
+  src/system/tim \
   src/screen \
-  src/sram
+  src/sram \
+  src/system/err
 
 INC_DIRS = \
   ./ \
@@ -46,8 +48,10 @@ INC_DIRS = \
   inc/system/uart \
   inc/system/tim \
   inc/system/isr \
+  inc/system/tim \
   inc/screen \
-  inc/sram
+  inc/sram \
+  inc/system/err
 
 #######################################################################################################################################################                                                                            
 #                               					 			GRID CONTROLLER MCU                                  	             				  #

@@ -20,6 +20,17 @@ void uartWrite_(char *c){
     }
 }
 
+void uartWriteToBinary(uint8_t val){
+    char c[20] = {0};
+    for(int i=0; i<8; i++){
+        if(val & 0x80){strcat(c, "1");}
+        else{strcat(c, "0");}
+        val = val << 1;
+    }
+    strcat(c, "\n");
+    uartWrite_(c);
+}
+
 void calcMYUBRR(){
     uint32_t baud = systemConfig.uart.baudrate;
     uint32_t fosc = systemConfig.FOSC;
